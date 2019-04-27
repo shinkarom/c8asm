@@ -43,7 +43,7 @@ public:
 	string peek_token()
 	{
 		auto k = get_token(true);
-		//cout<<"peeked at token \""<<g<<"\""<<endl;
+		//cout<<"peeked at token \""<<k<<"\""<<endl;
 		pos = prev_pos;
 		return k;
 	}
@@ -90,6 +90,30 @@ public:
 		return result;
 	}
 	
+	int expect_register()
+	{
+		auto tk = peek_token();
+		if(!is_register(tk))
+		{
+			cout<<"Register expected, but got "<<tk<<endl;
+			exit(0);
+		}
+		else return get_register();
+	}
+	
+	void expect_comma()
+	{
+		skip_whitespace();
+		if(curstr[pos]!=',')
+		{
+			cout<<"Comma expected"<<endl;
+			exit(0);
+		}
+		else {
+			pos++;
+		}
+	}
+	
 	bool optional_comma()
 	{
 		int old_pos = pos;
@@ -129,6 +153,13 @@ public:
 		if(isNegative)
 			value *= -1;		
 		return value;
+	}
+	
+	int get_register()
+	{
+		auto tk = get_token();
+		auto n = convert_todec(tk.substr(1),16);
+		return n;
 	}
 	
 	bool is_number(string s)
@@ -178,6 +209,11 @@ public:
 			return true;
 		} else
 			return false;
+	}
+	
+	bool is_register(string s)
+	{
+		return (s.length()==2)&&(s[0]=='v')&&(is_hexdigit(s[1]));
 	}
 	
 	bool is_bindigit(char c)

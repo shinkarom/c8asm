@@ -17,12 +17,23 @@ int addr;
 
 #include "tokenizer.hpp"
 
+void emit_twobytes(int hi, int lo)
+{
+	ss.write((char*)&hi,1);
+	ss.write((char*)&lo,1);
+}
+
+void emit_oneword(int wrd)
+{
+	emit_twobytes(wrd>>8,wrd % 256);
+}
+
 string preprocess_line(string& arg)
 {
 	return arg.substr(0,arg.find(";",0));
 }
 
-void process_db(Tokenizer t)
+void process_db(Tokenizer& t)
 {
 		t.expect_whitespace();
 		int r;
@@ -41,26 +52,23 @@ void process_db(Tokenizer t)
 				cout<<"Number too large."<<endl;
 				exit(0);
 			}else{
-			ss.write((char*)&r,1);
-			addr++;
-		}			
+				ss.write((char*)&r,1);
+				addr++;
+			}			
 		}
 		cout<<"processed db"<<endl;	
 }
 
-void process_dw(Tokenizer t)
+void process_dw(Tokenizer& t)
 {
 	t.expect_whitespace();
 	int r;
-	r= t.expect_numberthing();
+	r = t.expect_numberthing();
 	if(r>65535){
 		cout<<"Number too large."<<endl;
 		exit(0);
 	}else{
-		int hi = r>>8;
-		int lo = r % 256;
-		ss.write((char*)&hi,1);
-		ss.write((char*)&lo,1);
+		emit_oneword(r);
 		addr+=2;
 	}
 	while(t.optional_comma())
@@ -70,17 +78,30 @@ void process_dw(Tokenizer t)
 			cout<<"Number too large."<<endl;
 			exit(0);
 		}else{
-		int hi = r>>8;
-		int lo = r % 256;
-		ss.write((char*)&hi,1);
-		ss.write((char*)&lo,1);
-		addr+=2;
-	}			
+			emit_oneword(r);
+			addr+=2;
+		}			
 	}
 	cout<<"processed dw"<<endl;	
 }
 
-void process_mnemonic(Tokenizer t)
+void process_ld(Tokenizer& t)
+{
+	auto mn = t.peek_token();
+	if(t.is_register(mn))
+	{
+		
+	}
+	else if(mn=="dt")
+	{
+		t.get_token();
+		t.expect_comma();
+		auto r = t.expect_register();
+		emit_twobytes(0xF0|r,0x15);
+	}
+}
+
+void process_mnemonic(Tokenizer& t)
 {
 	auto mnemonic = t.get_token();
 	if (!t.is_reserved(mnemonic)) return;	
@@ -90,9 +111,26 @@ void process_mnemonic(Tokenizer t)
 	else if(mnemonic=="dw"){
 		process_dw(t);
 	}
-	else{
-		cout<<"mnemonic "<<mnemonic<<endl;
+	else if (mnemonic=="cls"){
+		emit_twobytes(0x00,0xE0);
 		addr+=2;
+	}
+	else if (mnemonic=="ret"){
+		emit_twobytes(0x00,0xEE);
+		addr+=2;		
+	}	
+	else if (mnemonic=="ld")
+	{
+		t.expect_whitespace();
+		process_ld(t);
+		addr+=2;
+	}
+	cout<<"mnemonic "<<mnemonic<<endl;
+	auto tk = t.get_token();
+	if(tk!="")
+	{
+		cout<<"Extraneous token "<<tk<<" on the line."<<endl;
+		exit(0);
 	}		
 }
 
@@ -116,12 +154,12 @@ void pass_1()
 			auto tok3 = t.get_token();
 			int i = stoi(tok3);
 			symtable[tok1] = i;
-			cout<<"added symbol "<<tok1<<" = "<<i<<endl;	
+			cout<<"symbol "<<tok1<<" = "<<i<<endl;	
 		}
 		else
 		{
 			symtable[tok1] = addr;
-			cout<<"added label "<<tok1<<" = "<<addr<<endl;	
+			cout<<"label "<<tok1<<" = "<<addr<<endl;	
 			process_mnemonic(t);			
 		}			
 		}
