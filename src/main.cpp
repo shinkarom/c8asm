@@ -1,120 +1,136 @@
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <vector>
 #include <string>
 #include <unordered_map>
 #include <algorithm>
 using namespace std;
 
-vector<string> mnemonics = {"cls","ret","sys","sys","jp","call","se","sne","ld","add","or","and","xor","sub","shr","subn","shl","sne","rnd","drw","skp","sknp","scd","scr","scl","exit","low","high"}; 
-
 vector<string> lines;
+stringstream ss(stringstream::binary|stringstream::out);
 
 unordered_map<string, int> symtable;
 unordered_map<int, string> labelrefs;
 
-struct Tokenizer
-{
-	string curstr;
-	size_t pos;
-	size_t prev_pos;
-	bool is_eof;
-	
-	Tokenizer(string& arg)
-	{
-		curstr = arg;
-		pos = 0;
-		is_eof = false;
-	}
-	
-	void skip_whitespace()
-	{
-		//auto old_pos = pos;
-		char delims[] = {' ','\t'};
-		while(find(begin(delims),end(delims),curstr[pos])!=end(delims))
-			pos++;
-		is_eof = pos==curstr.length();
-		//cout<<"skipped whitespace from "<<old_pos<<" to "<<pos<<endl;
-	}
+int addr;
 
-	string get_token(bool do_peek = false)
-	{
-		skip_whitespace();
-		prev_pos = pos;
-		pos = curstr.find_first_of(" \t",pos);
-		if(pos==string::npos)
-		{
-			pos = curstr.length();
-			is_eof = true;
-		}
-		auto g = curstr.substr(prev_pos,pos-prev_pos);	
-		transform(g.begin(),g.end(),g.begin(),::tolower);
-		
-		//if(do_peek)cout<<"peeked at token \"";
-		//else cout<<"got token \"";
-		//cout<<g<<"\""<<endl;
-		
-		skip_whitespace();
-		if(do_peek) pos = prev_pos;
-		return g;
-	}
-};
-
-struct Instruction
-{
-	string mnemonic;
-	vector<int> args;
-	string labelref;
-};
-
-vector<Instruction> instructions;
+#include "tokenizer.hpp"
 
 string preprocess_line(string& arg)
 {
 	return arg.substr(0,arg.find(";",0));
 }
 
+void process_db(Tokenizer t)
+{
+		t.expect_whitespace();
+		int r;
+		r= t.expect_numberthing();
+		if(r>255){
+			cout<<"Number too large."<<endl;
+			exit(0);
+		}else{
+			ss.write((char*)&r,1);
+			addr++;
+		}
+		while(t.optional_comma())
+		{
+			r=t.expect_numberthing();
+			if(r>255){
+				cout<<"Number too large."<<endl;
+				exit(0);
+			}else{
+			ss.write((char*)&r,1);
+			addr++;
+		}			
+		}
+		cout<<"processed db"<<endl;	
+}
+
+void process_dw(Tokenizer t)
+{
+	t.expect_whitespace();
+	int r;
+	r= t.expect_numberthing();
+	if(r>65535){
+		cout<<"Number too large."<<endl;
+		exit(0);
+	}else{
+		int hi = r>>8;
+		int lo = r % 256;
+		ss.write((char*)&hi,1);
+		ss.write((char*)&lo,1);
+		addr+=2;
+	}
+	while(t.optional_comma())
+	{
+		r=t.expect_numberthing();
+		if(r>65535){
+			cout<<"Number too large."<<endl;
+			exit(0);
+		}else{
+		int hi = r>>8;
+		int lo = r % 256;
+		ss.write((char*)&hi,1);
+		ss.write((char*)&lo,1);
+		addr+=2;
+	}			
+	}
+	cout<<"processed dw"<<endl;	
+}
+
+void process_mnemonic(Tokenizer t)
+{
+	auto mnemonic = t.get_token();
+	if (!t.is_reserved(mnemonic)) return;	
+	if(mnemonic=="db"){	
+		process_db(t);
+	} 
+	else if(mnemonic=="dw"){
+		process_dw(t);
+	}
+	else{
+		cout<<"mnemonic "<<mnemonic<<endl;
+		addr+=2;
+	}		
+}
+
 void pass_1()
 {
-	int addr = 0x200;
+	addr = 0x200;
 	for(auto l: lines)
 	{
 		Tokenizer t(l);
-		auto tok1 = t.get_token(true);
-		//cout<<"tok1 is "<<tok1<<endl;
-		if(find(begin(mnemonics),end(mnemonics),tok1)!=end(mnemonics))			
+		auto tok1 = t.peek_token();
+		if(t.is_reserved(tok1))			
 		{ 
-			tok1 = t.get_token(false);
-			cout<<"mnemonic "<<tok1<<endl;
-			addr+=2;
+			process_mnemonic(t);
 		}
 		else 	
 		{
-			t.get_token(false);	
-			if(auto tok2 = t.get_token(true); tok2=="equ")
-			{		
-				t.get_token(false);
-				auto tok3 = t.get_token(false);
-				//cout<<"tok3 is "<<tok3<<endl;
-				int i = stoi(tok3);
-				symtable[tok1] = i;
-				cout<<"added symbol "<<tok1<<" = "<<i<<endl;	
-			}
-			else
-			{
-				symtable[tok1] = addr;
-				cout<<"added label "<<tok1<<" = "<<addr<<endl;			
-			}			
+		t.get_token();	
+		if(auto tok2 = t.peek_token(); tok2=="equ")
+		{		
+			t.get_token();
+			auto tok3 = t.get_token();
+			int i = stoi(tok3);
+			symtable[tok1] = i;
+			cout<<"added symbol "<<tok1<<" = "<<i<<endl;	
+		}
+		else
+		{
+			symtable[tok1] = addr;
+			cout<<"added label "<<tok1<<" = "<<addr<<endl;	
+			process_mnemonic(t);			
+		}			
 		}
 	}
 }
 
 void pass_2()
 {
-	for(auto I: instructions)
-	{
-		
-	}
+
 }
 
 int main(int argc, char *argv[])
@@ -132,6 +148,8 @@ int main(int argc, char *argv[])
 	}
 	pass_1();
 	pass_2();
-	ofstream ofs("test.c8",ios::out|ios::trunc);
+	ofstream ofs("test.c8",ios::binary|ios::out|ios::trunc);
+	ofs<<ss.str();
+	ofs.close();
 	return 0;
 }
