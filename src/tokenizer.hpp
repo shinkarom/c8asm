@@ -119,6 +119,11 @@ bool is_number(string s)
 	} else return false;
 }
 
+bool is_numberthing(string s)
+{
+	return is_number(s)||(symtable.find(s)!=symtable.end());
+}
+
 void skip_whitespace()
 {
 	while(is_whitespace(curstr[pos]))
@@ -129,8 +134,7 @@ void skip_whitespace()
 
 void expect_whitespace()
 {
-	if(!is_whitespace(curstr[pos]))
-	{
+	if(!is_whitespace(curstr[pos])){
 		cout<<"Whitespace expected."<<endl;
 		exit(1);
 	}
@@ -142,16 +146,13 @@ string get_token(bool do_peek = false)
 	skip_whitespace();
 	size_t prev_pos = pos;
 	pos = curstr.find_first_of(" \t,",pos);
-	if(pos==string::npos)
-	{
+	if(pos==string::npos){
 		pos = curstr.length();
 		is_eof = true;
 	}
 	auto g = curstr.substr(prev_pos,pos-prev_pos);	
-	transform(g.begin(),g.end(),g.begin(),::tolower);
-	
+	transform(g.begin(),g.end(),g.begin(),::tolower);	
 	//cout<<"got token \""<<g<<"\""<<endl;
-	
 	return g;
 }
 
@@ -168,8 +169,7 @@ bool optional_comma()
 {
 	int old_pos = pos;
 	skip_whitespace();
-	if(curstr[pos]==',')
-	{
+	if(curstr[pos]==','){
 		pos++;
 		return true;
 	}
@@ -180,8 +180,7 @@ bool optional_comma()
 void expect_comma()
 {
 	skip_whitespace();
-	if(curstr[pos]!=',')
-	{
+	if(curstr[pos]!=','){
 		cout<<"Comma expected"<<endl;
 		exit(0);
 	}
@@ -200,8 +199,7 @@ int get_register()
 int expect_register()
 {
 	auto tk = peek_token();
-	if(!is_register(tk))
-	{
+	if(!is_register(tk)){
 		cout<<"Register expected, but got "<<tk<<endl;
 		exit(0);
 	}
@@ -241,14 +239,22 @@ int expect_numberthing()
 	if(!is_number(tk)){
 		if(auto it=symtable.find(tk);it!=symtable.end()){
 			result = it->second;
-			get_number();
-		}else{
+			get_token();
+		} else{
 			cout<<"Numberthing expected, but got "<<tk<<endl;
 			exit(0);
 		}
-	} else{		
+	} else	
 		result = get_number();
-	}
 	cout<<"got numberthing "<<result<<endl;
 	return result;
+}
+
+int expect_address(){
+	auto n = expect_numberthing();
+	if(n>4192){
+		cout<<"Number too large."<<endl;
+		exit(1);
+	} else
+		return n;
 }
