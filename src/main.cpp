@@ -1,13 +1,12 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
-#include <vector>
 #include <string>
 #include <unordered_map>
 #include <algorithm>
 using namespace std;
 
-stringstream ss(stringstream::binary|stringstream::out);
+stringstream ss(stringstream::binary|stringstream::out|stringstream::in);
 
 unordered_map<string, int> symtable;
 unordered_map<string, int> regtable;
@@ -65,14 +64,14 @@ bool is_bindigit(char c)
 
 bool is_octdigit(char c)
 {
-	const char octdigits[] = {'0','1','2','3','4','5','6','7'};
-	return find(begin(octdigits),end(octdigits),c)!=end(octdigits);		
+	string octdigits = "01234567";
+	return octdigits.find(c)!=string::npos;		
 }
 
 bool is_hexdigit(char c)
 {
-	const char hexdigits[] = {'0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'};
-	return find(begin(hexdigits),end(hexdigits),c)!=end(hexdigits);		
+	string hexdigits = "0123456789abcdef";
+	return hexdigits.find(c)!=string::npos;		
 }
 
 bool is_register(string s)
@@ -80,7 +79,7 @@ bool is_register(string s)
 	return (s.length()==2)&&(s[0]=='v')&&(is_hexdigit(s[1]));
 }
 
-bool is_registerthing(string s)
+bool is_register_or_symbol(string s)
 {
 	if(is_register(s))
 		return true;
@@ -91,26 +90,41 @@ bool is_registerthing(string s)
 
 bool is_decdigit_nonzero(char c)
 {
-	const char decdigits_nonzero[] = {'1','2','3','4','5','6','7','8','9'};
-	return find(begin(decdigits_nonzero),end(decdigits_nonzero),c)!=end(decdigits_nonzero);		
+	string decdigits_nonzero = "123456789";
+	return decdigits_nonzero.find(c)!=string::npos;		
 }
 
 bool is_decdigit(char c)
 {
-	const char decdigits[] = {'0','1','2','3','4','5','6','7','8','9'};
-	return find(begin(decdigits),end(decdigits),c)!=end(decdigits);		
+	string decdigits = "0123456789";
+	return decdigits.find(c)!=string::npos;		
 }
 
 bool is_whitespace(char c)
 {
-	const char whitespace[] = {' ','\t'};
-	return find(begin(whitespace),end(whitespace),c)!=end(whitespace);
+	string whitespace = " \t";
+	return whitespace.find(c)!=string::npos;
+}
+
+bool is_identchar(char c)
+{
+	const string identchars = "abcdefghijklmnopqrstuvwxyz0123456789_";
+	return identchars.find(c)!=string::npos;	
 }
 
 bool is_reserved(string s)
 {
-	const vector<string> reserved = {"cls","ret","sys","jp","call","se","sne","ld","add","or","and","xor","sub","shr","subn","shl","sne","rnd","drw","skp","sknp","scd","scr","scl","exit","low","high","i","dt","st","f","b","v0","v1","v2","v3","v4","v5","v6","v7","v8","v9","va","vb","vc","vd","ve","vf","db","dw","k"};
+	const string reserved[] = {"cls","ret","sys","jp","call","se","sne","ld","add","or","and","xor","sub","shr","subn","shl","sne","rnd","drw","skp","sknp","scd","scr","scl","exit","low","high","i","dt","st","f","b","v0","v1","v2","v3","v4","v5","v6","v7","v8","v9","va","vb","vc","vd","ve","vf","db","dw","k"};
 	return find(begin(reserved),end(reserved),s)!=end(reserved);
+}
+
+bool is_ident(string s)
+{
+	for(auto c : s)
+		if(!is_identchar(c))
+			return false;
+	if(is_decdigit(s[0])) return false;
+	return true;
 }
 
 bool is_number(string s)
@@ -145,7 +159,7 @@ bool is_number(string s)
 	} else return false;
 }
 
-bool is_numberthing(string s)
+bool is_number_or_label(string s)
 {
 	return is_number(s)||(symtable.find(s)!=symtable.end());
 }
@@ -167,17 +181,23 @@ void expect_whitespace()
 	skip_whitespace();
 }
 
-string get_token(bool do_peek = false)
+string get_token()
 {
+	string delims = " ,\t";
+	string g = "";
 	skip_whitespace();
-	size_t prev_pos = pos;
-	pos = curstr.find_first_of(" \t,",pos);
-	if(pos==string::npos){
-		pos = curstr.length();
-		is_eof = true;
-	}
-	auto g = curstr.substr(prev_pos,pos-prev_pos);	
-	transform(g.begin(),g.end(),g.begin(),::tolower);	
+	do{
+		if(pos>=curstr.length()){
+			is_eof=true;
+			break;
+		} 
+		else if(delims.find(curstr[pos])!=string::npos)
+			break;
+		else{
+			g+=curstr[pos];
+			pos++;
+		}
+	}while(true);
 	//cout<<"got token \""<<g<<"\""<<endl;
 	return g;
 }
@@ -185,7 +205,7 @@ string get_token(bool do_peek = false)
 string peek_token()
 {
 	size_t prev_pos = pos;
-	auto k = get_token(true);
+	auto k = get_token();
 	//cout<<"peeked at token \""<<k<<"\""<<endl;
 	pos = prev_pos;
 	return k;
@@ -210,9 +230,7 @@ void expect_comma()
 		cout<<"Comma expected"<<endl;
 		exit(0);
 	}
-	else {
-		pos++;
-	}
+	else pos++;
 }
 
 int get_register()
@@ -232,7 +250,7 @@ int expect_register()
 	else return get_register();
 }
 
-int expect_registerthing()
+int expect_register_or_symbol()
 {
 	auto tk = peek_token();
 	if(is_register(tk))
@@ -241,7 +259,7 @@ int expect_registerthing()
 		get_token();
 		return r->second;
 	}else{
-		cout<<"Registerthing expected, but got "<<tk<<endl;
+		cout<<"register_or_symbol expected, but got "<<tk<<endl;
 		exit(1);
 	}
 }
@@ -258,7 +276,7 @@ int get_number()
 	return stoi(tk);
 }
 
-int expect_numberthing()
+int expect_number_or_label()
 {
 	int result;
 	auto tk = peek_token();
@@ -267,19 +285,29 @@ int expect_numberthing()
 			result = it->second;
 			get_token();
 		} else{
-			cout<<"Numberthing expected, but got "<<tk<<endl;
+			cout<<"number_or_label expected, but got "<<tk<<endl;
 			exit(0);
 		}
 	} else	
 		result = get_number();
-	cout<<"got numberthing "<<result<<endl;
+	cout<<"got number_or_label "<<result<<endl;
 	return result;
 }
 
 int expect_address(){
-	auto n = expect_numberthing();
-	limit_number(n,4192);
-	return n;
+	auto t = peek_token();
+	if(is_number(t)){
+		auto n = get_number();
+		limit_number(n,4192);
+		return n;
+	} else if(is_ident(t)&&(!is_reserved(t)))	{
+		get_token();
+		labelrefs[addr] = t;
+		return 0;
+	} else {
+		cout<<"Address expected"<<endl;
+		exit(1);
+	}
 }
 
 void emit_twobytes(int hi, int lo)
@@ -295,7 +323,7 @@ void emit_oneword(int wrd)
 
 void process_one_db()
 {
-	int r=expect_numberthing();
+	int r=expect_number_or_label();
 	limit_number(r,255);
 	ss.write((char*)&r,1);
 	addr++;
@@ -312,7 +340,7 @@ void process_db()
 
 void process_one_dw()
 {
-	int r = expect_numberthing();
+	int r = expect_number_or_label();
 	limit_number(r,65535);
 	emit_oneword(r);
 	addr+=2;	
@@ -332,10 +360,10 @@ void process_ld_i()
 	get_token();
 	expect_comma();
 	auto rr = peek_token();
-	if(is_registerthing(rr)){
-		auto r = expect_registerthing();
+	if(is_register_or_symbol(rr)){
+		auto r = expect_register_or_symbol();
 		emit_twobytes(0xF0|r,0x55);
-	} else if(is_numberthing(rr)){
+	} else if(is_number_or_label(rr)){
 		auto r = expect_address();
 			emit_oneword(0xA000|r);
 	} else{
@@ -347,15 +375,15 @@ void process_ld_i()
 void process_ld_vx()
 {
 	const unordered_map<string, int> not_register_second = {{"dt",0x07},{"k",0x0A},{"i",0x65}};
-	auto x = expect_registerthing();
+	auto x = expect_register_or_symbol();
 	expect_comma();	
 	auto y = peek_token();
 	if(auto o = not_register_second.find(y);o!=not_register_second.end()){
 		emit_twobytes(0xF0|x,o->second);
 		get_token();
 	}		
-	else if(is_registerthing(y)){
-		auto yy = expect_registerthing();
+	else if(is_register_or_symbol(y)){
+		auto yy = expect_register_or_symbol();
 		emit_twobytes(0x80|x,0x00|(yy<<4));
 	} else if(is_number(y)){
 		auto yy = get_number();
@@ -368,12 +396,12 @@ void process_ld()
 {
 	const unordered_map<string, int> not_register_first = {{"dt",0x15},{"st",0x18},{"f",0x29},{"b",0x33}};
 	auto mn = peek_token();
-	if(is_registerthing(mn))
+	if(is_register_or_symbol(mn))
 		process_ld_vx();
 	else if(auto o = not_register_first.find(mn);o!=not_register_first.end()){
 		get_token();
 		expect_comma();
-		auto r = expect_registerthing();
+		auto r = expect_register_or_symbol();
 		emit_twobytes(0xF0|r,o->second);		
 	}
 	else if(mn=="i")
@@ -386,9 +414,9 @@ void process_mnemonic()
 	auto mnemonic = get_token();
 	if (!is_reserved(mnemonic)) return;	
 	if(auto o=two_arg_mnemonics.find(mnemonic);o!=two_arg_mnemonics.end()){
-		auto x = expect_registerthing();
+		auto x = expect_register_or_symbol();	
 		expect_comma();
-		auto y = expect_registerthing();
+		auto y = expect_register_or_symbol();
 		emit_oneword(o->second|(x<<8)|(y<<4));
 		addr+=2;
 	}
@@ -451,6 +479,29 @@ void process_line(string s)
 	}	
 }
 
+void resolve_labels()
+{
+	for(auto &x: labelrefs)
+	{
+		auto it = symtable.find(x.second);
+		if(it==symtable.end())
+		{
+			cout<<"Unresolved label reference: "<<x.second<<endl;
+			exit(1);
+		}else {			
+			ss.clear();
+			ss.seekg(x.first-0x200,ss.beg);
+			char hi,lo;
+			ss.get(hi);
+			ss.get(lo);
+			int hl = (hi<<8) | lo | it->second;
+			ss.clear();
+			ss.seekp(x.first-0x200,ss.beg);
+			emit_twobytes(hl >> 8,hl%256);			
+		}
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	ifstream ifs("test.asm",ios::in);
@@ -464,6 +515,7 @@ int main(int argc, char *argv[])
 		process_line(thisline);
 		line_num++;
 	}
+	resolve_labels();
 	ofstream ofs("test.c8",ios::binary|ios::out|ios::trunc);
 	ofs<<ss.str();
 	ofs.close();
