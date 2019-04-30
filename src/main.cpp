@@ -279,7 +279,7 @@ int expect_number_or_label()
 		}
 	} else	
 		result = get_number();
-	cout<<"got number_or_label "<<result<<endl;
+	//cout<<"got number_or_label "<<result<<endl;
 	return result;
 }
 
@@ -324,7 +324,7 @@ void process_db()
 	process_one_db();
 	while(optional_comma())
 		process_one_db();
-	cout<<"processed db"<<endl;	
+	//cout<<"processed db"<<endl;	
 }
 
 void process_one_dw()
@@ -341,7 +341,7 @@ void process_dw()
 	process_one_dw();
 	while(optional_comma())
 		process_one_dw();		
-	cout<<"processed dw"<<endl;	
+	//cout<<"processed dw"<<endl;	
 }
 
 void process_ld_i()
@@ -551,7 +551,7 @@ void process_mnemonic()
 		process_ld();
 		addr+=2;
 	}
-	cout<<"mnemonic "<<mnemonic<<endl;
+	//cout<<"mnemonic "<<mnemonic<<endl;
 	auto tk = get_token();
 	if(tk!=""){
 		cout<<"Extraneous token "<<tk<<" on the line."<<endl;
@@ -597,11 +597,11 @@ void process_line(string s)
 					cout<<"Wrong constant."<<endl;
 					exit(1);
 				}			
-				cout<<"symbol "<<tok1<<" = "<<i<<endl;	
+				//cout<<"symbol "<<tok1<<" = "<<i<<endl;	
 			}
 			else {
 				symtable[tok1] = addr;
-				cout<<"label "<<tok1<<" = "<<addr<<endl;	
+				//cout<<"label "<<tok1<<" = "<<addr<<endl;	
 				process_mnemonic();			
 			}			
 		}
@@ -633,6 +633,7 @@ void resolve_labels()
 
 int main(int argc, char *argv[])
 {
+	cout<<"c8asm by shinkarom"<<endl;
 	if(argc!=3)
 	{
 		cout<<"Both input file and output file required"<<endl;
@@ -653,5 +654,9 @@ int main(int argc, char *argv[])
 	ofstream ofs(argv[2],ios::binary|ios::out|ios::trunc);
 	ofs<<ss.str();
 	ofs.close();
+	ss.clear();
+	ss.seekg(0,ss.end);
+	auto n = ss.tellg();
+	cout<<argv[2]<<" assembled. "<<n<<" bytes."<<endl;
 	return 0;
 }
