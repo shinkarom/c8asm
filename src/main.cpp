@@ -19,13 +19,6 @@ int line_num;
 size_t pos;
 bool is_eof;
 
-void init_tokenizer(string& arg)
-{
-	curstr = arg;
-	pos = 0;
-	is_eof = false;		
-}
-
 int convert_todec(const string& input, int base)
 {
 	if(base < 2 || base > 36)
@@ -81,11 +74,7 @@ bool is_register(string s)
 
 bool is_register_or_symbol(string s)
 {
-	if(is_register(s))
-		return true;
-	else if(regtable.find(s)!=regtable.end())
-		return true;
-	else return false;
+	return is_register(s)||(regtable.find(s)!=regtable.end());
 }
 
 bool is_decdigit_nonzero(char c)
@@ -194,7 +183,7 @@ string get_token()
 		else if(delims.find(curstr[pos])!=string::npos)
 			break;
 		else{
-			g+=curstr[pos];
+			g+=tolower(curstr[pos]);
 			pos++;
 		}
 	}while(true);
@@ -581,7 +570,9 @@ void check_dup_symbol(string tok)
 void process_line(string s)
 {
 	if(s.size()>0){
-		init_tokenizer(s);
+		curstr = s;
+		pos = 0;
+		is_eof = false;	
 		auto tok1 = peek_token();
 		if(is_reserved(tok1))			
 			process_mnemonic();
@@ -642,7 +633,12 @@ void resolve_labels()
 
 int main(int argc, char *argv[])
 {
-	ifstream ifs("test.asm",ios::in);
+	if(argc!=3)
+	{
+		cout<<"Both input file and output file required"<<endl;
+		exit(1);
+	}
+	ifstream ifs(argv[1],ios::in);
 	char templine[256];
 	addr = 0x200;
 	line_num = 1;
@@ -654,7 +650,7 @@ int main(int argc, char *argv[])
 		line_num++;
 	}
 	resolve_labels();
-	ofstream ofs("test.c8",ios::binary|ios::out|ios::trunc);
+	ofstream ofs(argv[2],ios::binary|ios::out|ios::trunc);
 	ofs<<ss.str();
 	ofs.close();
 	return 0;
