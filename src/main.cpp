@@ -343,30 +343,13 @@ void process_dw()
 	//cout<<"processed dw"<<endl;	
 }
 
-void process_ld_i()
-{
-	get_token();
-	expect_comma();
-	auto rr = peek_token();
-	if(is_register_or_symbol(rr)){
-		auto r = expect_register_or_symbol();
-		emit_twobytes(0xF0|r,0x55);
-	} else if(is_number_or_label(rr)){
-		auto r = expect_address();
-		emit_oneword(0xA000|r);
-	} else{
-		cout<<"Wrong argument: "<<rr<<endl;
-		exit(1);
-	}
-}
-
 void process_ld_vx()
 {
-	const unordered_map<string, int> not_register_second = {{"DT",0x07},{"K",0x0A},{"I",0x65}};
+	const unordered_map<string, int> register_first = {{"DT",0x07},{"K",0x0A},{"[I]",0x65}};
 	auto x = expect_register_or_symbol();
 	expect_comma();	
 	auto y = peek_token();
-	if(auto o = not_register_second.find(y);o!=not_register_second.end()){
+	if(auto o = register_first.find(y);o!=register_first.end()){
 		emit_twobytes(0xF0|x,o->second);
 		get_token();
 	}		
@@ -382,18 +365,22 @@ void process_ld_vx()
 
 void process_ld()
 {
-	const unordered_map<string, int> not_register_first = {{"DT",0x15},{"ST",0x18},{"F",0x29},{"B",0x33}};
+	const unordered_map<string, int> register_second = {{"DT",0x15},{"ST",0x18},{"F",0x29},{"B",0x33},{"[I]",0x55}};
 	auto mn = peek_token();
 	if(is_register_or_symbol(mn))
 		process_ld_vx();
-	else if(auto o = not_register_first.find(mn);o!=not_register_first.end()){
+	else if(auto o = register_second.find(mn);o!=register_second.end()){
 		get_token();
 		expect_comma();
 		auto r = expect_register_or_symbol();
 		emit_twobytes(0xF0|r,o->second);		
 	}
-	else if(mn=="I")
-		process_ld_i();
+	else if(mn=="I"){
+		get_token();
+		expect_comma();
+		auto r = expect_address();
+		emit_oneword(0xA000|r);
+	}		
 }
 
 void process_add()
