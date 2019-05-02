@@ -63,13 +63,13 @@ bool is_octdigit(char c)
 
 bool is_hexdigit(char c)
 {
-	string hexdigits = "0123456789abcdef";
+	string hexdigits = "0123456789ABCDEF";
 	return hexdigits.find(c)!=string::npos;		
 }
 
 bool is_register(string s)
 {
-	return (s.length()==2)&&(s[0]=='v')&&(is_hexdigit(s[1]));
+	return (s.length()==2)&&(s[0]=='V')&&(is_hexdigit(s[1]));
 }
 
 bool is_register_or_symbol(string s)
@@ -97,13 +97,13 @@ bool is_whitespace(char c)
 
 bool is_identchar(char c)
 {
-	const string identchars = "abcdefghijklmnopqrstuvwxyz0123456789_";
+	const string identchars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_";
 	return identchars.find(c)!=string::npos;	
 }
 
 bool is_reserved(string s)
 {
-	const string reserved[] = {"cls","ret","sys","jp","call","se","sne","ld","add","or","and","xor","sub","shr","subn","shl","sne","rnd","drw","skp","sknp","scd","scr","scl","exit","low","high","i","dt","st","f","b","v0","v1","v2","v3","v4","v5","v6","v7","v8","v9","va","vb","vc","vd","ve","vf","db","dw","k"};
+	const string reserved[] = {"CLS","RET","SYS","JP","CALL","SE","SNE","LD","ADD","OR","AND","XOR","SUB","SHR","SUBN","SHL","SNE","RND","DRW","SKP","SKNP","I","DT","ST","F","B","V0","V1","V2","V3","V4","V5","V6","V7","V8","V9","VA","VB","VC","VD","VE","VF","DB","DW","K"};
 	return find(begin(reserved),end(reserved),s)!=end(reserved);
 }
 
@@ -183,7 +183,7 @@ string get_token()
 		else if(delims.find(curstr[pos])!=string::npos)
 			break;
 		else{
-			g+=tolower(curstr[pos]);
+			g+=toupper(curstr[pos]);
 			pos++;
 		}
 	}while(true);
@@ -269,16 +269,15 @@ int expect_number_or_label()
 {
 	int result;
 	auto tk = peek_token();
-	if(!is_number(tk)){
-		if(auto it=symtable.find(tk);it!=symtable.end()){
+	if(is_number(tk))
+		result = get_number();
+	else if(auto it=symtable.find(tk);it!=symtable.end()){
 			result = it->second;
 			get_token();
-		} else{
+	} else{
 			cout<<"number_or_label expected, but got "<<tk<<endl;
 			exit(0);
-		}
-	} else	
-		result = get_number();
+	}			
 	//cout<<"got number_or_label "<<result<<endl;
 	return result;
 }
@@ -363,7 +362,7 @@ void process_ld_i()
 
 void process_ld_vx()
 {
-	const unordered_map<string, int> not_register_second = {{"dt",0x07},{"k",0x0A},{"i",0x65},{"r",0x85}};
+	const unordered_map<string, int> not_register_second = {{"DT",0x07},{"K",0x0A},{"I",0x65}};
 	auto x = expect_register_or_symbol();
 	expect_comma();	
 	auto y = peek_token();
@@ -383,7 +382,7 @@ void process_ld_vx()
 
 void process_ld()
 {
-	const unordered_map<string, int> not_register_first = {{"dt",0x15},{"st",0x18},{"f",0x29},{"b",0x33},{"hf",0x30},{"r",0x75}};
+	const unordered_map<string, int> not_register_first = {{"DT",0x15},{"ST",0x18},{"F",0x29},{"B",0x33}};
 	auto mn = peek_token();
 	if(is_register_or_symbol(mn))
 		process_ld_vx();
@@ -393,7 +392,7 @@ void process_ld()
 		auto r = expect_register_or_symbol();
 		emit_twobytes(0xF0|r,o->second);		
 	}
-	else if(mn=="i")
+	else if(mn=="I")
 		process_ld_i();
 }
 
@@ -426,7 +425,7 @@ void process_add()
 void process_jp()
 {
 	auto t = peek_token();
-	if(t=="v0"){
+	if(t=="V0"){
 		get_token();
 		expect_comma();
 		auto a = expect_address();
@@ -480,9 +479,9 @@ void process_se()
 
 void process_mnemonic()
 {
-	const unordered_map<string,int> no_arg_mnemonics = {{"cls",0x00E0},{"ret",0x00EE},{"scr",0x00FB},{"scl",0x00FC},{"exit",0x00FD},{"low",0x00FE},{"high",0x00FF}};
-	const unordered_map<string,int> one_reg_mnemonics = {{"shr",0x8006},{"shl",0x800E},{"skp",0xE09E},{"sknp",0xE0A1}};
-	const unordered_map<string,int> two_arg_mnemonics = {{"or",0x8001},{"and",0x8002},{"xor",0x8003},{"sub",0x8005},{"subn",0x8007}};
+	const unordered_map<string,int> no_arg_mnemonics = {{"CLS",0x00E0},{"RET",0x00EE}};
+	const unordered_map<string,int> one_reg_mnemonics = {{"SHR",0x8006},{"SHL",0x800E},{"SKP",0xE09E},{"SKNP",0xE0A1}};
+	const unordered_map<string,int> two_arg_mnemonics = {{"OR",0x8001},{"AND",0x8002},{"XOR",0x8003},{"SUB",0x8005},{"SUBN",0x8007}};
 	auto mnemonic = get_token();
 	if (!is_reserved(mnemonic)) return;	
 	if(auto o=two_arg_mnemonics.find(mnemonic);o!=two_arg_mnemonics.end()){
@@ -501,7 +500,7 @@ void process_mnemonic()
 		emit_oneword(o->second);
 		addr+=2;
 	}
-	else if(mnemonic=="drw"){
+	else if(mnemonic=="DRW"){
 		auto x = expect_register_or_symbol();
 		expect_comma();
 		auto y = expect_register_or_symbol();
@@ -511,13 +510,7 @@ void process_mnemonic()
 		emit_twobytes(0xD0|x,(y<<4)|z);
 		addr+=2;
 	}
-	else if(mnemonic=="scd"){
-		auto z = expect_number_or_label();
-		limit_number(z,15);
-		emit_oneword(0xC0|z);
-		addr+=2;		
-	}
-	else if(mnemonic=="rnd"){
+	else if(mnemonic=="RND"){
 		auto x = expect_register_or_symbol();
 		expect_comma();
 		auto z = expect_number_or_label();
@@ -525,29 +518,29 @@ void process_mnemonic()
 		emit_twobytes(0xC0|x,z);
 		addr+=2;
 	}
-	else if (mnemonic=="sys"){
+	else if (mnemonic=="SYS"){
 		auto a = expect_address();
 		emit_oneword(0x0000|a);
 		addr+=2;
 	}
-	else if (mnemonic=="call"){
+	else if (mnemonic=="CALL"){
 		auto a = expect_address();
 		emit_oneword(0x1000|a);
 		addr+=2;
 	}
-	else if(mnemonic=="jp")
+	else if(mnemonic=="JP")
 		process_jp();
-	else if(mnemonic=="sne")
+	else if(mnemonic=="SNE")
 		process_sne();
-	else if(mnemonic=="se")
+	else if(mnemonic=="SE")
 		process_se();
-	else if(mnemonic=="add")
+	else if(mnemonic=="ADD")
 		process_add();
-	else if(mnemonic=="db")	
+	else if(mnemonic=="DB")	
 		process_db();
-	else if(mnemonic=="dw")
+	else if(mnemonic=="DW")
 		process_dw();	
-	else if (mnemonic=="ld"){
+	else if (mnemonic=="LD"){
 		process_ld();
 		addr+=2;
 	}
