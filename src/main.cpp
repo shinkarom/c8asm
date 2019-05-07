@@ -103,7 +103,7 @@ bool is_identchar(char c)
 
 bool is_reserved(string s)
 {
-	const string reserved[] = {"CLS","RET","SYS","JP","CALL","SE","SNE","LD","ADD","OR","AND","XOR","SUB","SHR","SUBN","SHL","SNE","RND","DRW","SKP","SKNP","I","DT","ST","F","B","V0","V1","V2","V3","V4","V5","V6","V7","V8","V9","VA","VB","VC","VD","VE","VF","DB","DW","K"};
+	const string reserved[] = {"CLS","RET","JP","CALL","SE","SNE","LD","ADD","OR","AND","XOR","SUB","SHR","SUBN","SHL","SNE","RND","DRW","SKP","SKNP","I","DT","ST","F","B","V0","V1","V2","V3","V4","V5","V6","V7","V8","V9","VA","VB","VC","VD","VE","VF","DB","DW","K"};
 	return find(begin(reserved),end(reserved),s)!=end(reserved);
 }
 
@@ -503,11 +503,6 @@ void process_mnemonic()
 		auto z = expect_number_or_label();
 		limit_number(z,255);
 		emit_twobytes(0xC0|x,z);
-		addr+=2;
-	}
-	else if (mnemonic=="SYS"){
-		auto a = expect_address();
-		emit_oneword(0x0000|a);
 		addr+=2;
 	}
 	else if (mnemonic=="CALL"){
